@@ -98,6 +98,39 @@ class TestMarkItDownConverter:
         assert result["documents"][0].content == "# Hello\n\nThis is converted markdown."
         converter._converter.convert_stream.assert_called_once()
 
+    def test_run_bytestream_keeps_source_meta(self, mock_result):
+        bytestream = ByteStream(
+            data=b"Hello local text",
+            meta={"file_path": "/original/input.txt", "author": "Alice", "language": "en"},
+        )
+        converter = MarkItDownConverter()
+        converter._converter = MagicMock()
+        converter._converter.convert_stream.return_value = mock_result
+
+        result = converter.run(sources=[bytestream])
+
+        assert result["documents"][0].meta == {"file_path": "input.txt", "author": "Alice", "language": "en"}
+
+    def test_run_bytestream_keeps_source_meta_with_full_path(self, mock_result):
+        bytestream = ByteStream(data=b"Hello", meta={"file_path": "/original/input.txt", "author": "Alice"})
+        converter = MarkItDownConverter(store_full_path=True)
+        converter._converter = MagicMock()
+        converter._converter.convert_stream.return_value = mock_result
+
+        result = converter.run(sources=[bytestream])
+
+        assert result["documents"][0].meta == {"file_path": "/original/input.txt", "author": "Alice"}
+
+    def test_run_meta_overrides_bytestream_meta(self, mock_result):
+        bytestream = ByteStream(data=b"Hello", meta={"file_path": "input.txt", "author": "Alice"})
+        converter = MarkItDownConverter()
+        converter._converter = MagicMock()
+        converter._converter.convert_stream.return_value = mock_result
+
+        result = converter.run(sources=[bytestream], meta={"author": "Bob"})
+
+        assert result["documents"][0].meta == {"file_path": "input.txt", "author": "Bob"}
+
     def test_run_with_meta(self, mock_result, tmp_path):
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("Hello world")

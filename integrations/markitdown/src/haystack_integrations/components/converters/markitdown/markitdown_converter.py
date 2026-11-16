@@ -63,6 +63,8 @@ class MarkItDownConverter:
         :param meta:
             Optional metadata to attach to the Documents. Can be a single dict
             applied to all Documents, or a list of dicts aligned with `sources`.
+            For ByteStream sources, this metadata is merged with the ByteStream's own metadata,
+            and values passed here take precedence.
         :returns:
             A dictionary with key `documents` containing the converted Documents.
         """
@@ -87,13 +89,13 @@ class MarkItDownConverter:
                 )
                 continue
 
-            source_meta: dict[str, Any] = {}
             if isinstance(source, ByteStream):
-                if "file_path" in source.meta:
-                    file_path = source.meta["file_path"]
-                    source_meta["file_path"] = file_path if self.store_full_path else Path(file_path).name
+                # Copy so the caller's ByteStream.meta is never mutated
+                source_meta: dict[str, Any] = dict(source.meta)
+                if "file_path" in source_meta and not self.store_full_path:
+                    source_meta["file_path"] = Path(source_meta["file_path"]).name
             else:
-                source_meta["file_path"] = str(source) if self.store_full_path else Path(source).name
+                source_meta = {"file_path": str(source) if self.store_full_path else Path(source).name}
 
             documents.append(Document(content=result.text_content, meta={**source_meta, **user_meta}))
 
